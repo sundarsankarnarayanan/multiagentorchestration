@@ -181,13 +181,25 @@ async def upload_document(
         
         # Add document to RAG system for Q&A
         try:
-            # Ensure document has content (Scout might have only set partial content)
-            doc_content = document.content
-            
-            # If content is still missing (e.g. Scout failure or binary file not fully parsed), try to use the raw bytes we read
+            # Use the processed output (OCR text, extracted content, etc.)
+            doc_content = None
+
+            # First, try to use the final output from processing
+            if result.get('success') and result.get('final_output'):
+                final_output = result['final_output']
+                if isinstance(final_output, str):
+                    doc_content = final_output
+                elif isinstance(final_output, dict):
+                    # Try to extract text from dict
+                    doc_content = final_output.get('text') or final_output.get('content') or str(final_output)
+
+            # Fallback to document.content (original parsed content)
+            if not doc_content:
+                doc_content = document.content
+
+            # Last resort: try to decode the raw bytes
             if not doc_content:
                 try:
-                    # Best effort decode for text files
                     doc_content = content.decode('utf-8')
                 except UnicodeDecodeError:
                     logger.warning(f"Could not decode content for {file.filename}, skipping RAG indexing")
@@ -195,21 +207,28 @@ async def upload_document(
                     doc_content = None
 
             if doc_content:
-                num_chunks = await rag_engine.add_document(
-                    document_id=document.get_filename(),
-                    content=doc_content,
-                    metadata={
-                        "filename": document.get_filename(),
-                        "document_type": document.document_type.value
-                    }
-                )
-                logger.info(f"Added document to RAG system: {num_chunks} chunks")
-                result["rag_chunks"] = num_chunks
+                # Clean up content (remove excessive whitespace)
+                doc_content = doc_content.strip()
+
+                if len(doc_content) > 0:
+                    num_chunks = await rag_engine.add_document(
+                        document_id=document.get_filename(),
+                        content=doc_content,
+                        metadata={
+                            "filename": document.get_filename(),
+                            "document_type": document.document_type.value,
+                            "workflow": result.get('workflow_name', 'unknown')
+                        }
+                    )
+                    logger.info(f"Added document to RAG system: {num_chunks} chunks for {document.get_filename()}")
+                    result["rag_chunks"] = num_chunks
+                else:
+                    logger.warning(f"Content is empty after processing for {document.get_filename()}")
             else:
                 logger.warning(f"No content available for RAG indexing for {document.get_filename()}")
-                
+
         except Exception as e:
-            logger.warning(f"Failed to add document to RAG: {e}")
+            logger.error(f"Failed to add document to RAG: {e}", exc_info=True)
         
         return result
     
