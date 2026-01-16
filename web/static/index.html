@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Document Processor - OCR & Analysis</title>
+    <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+    <div class="app">
+        <!-- Header -->
+        <header class="header">
+            <div class="header-content">
+                <h1>AI Document Processor</h1>
+                <p class="tagline">OCR, Summarization & Document Analysis</p>
+                <div class="status-pill" id="statusPill">
+                    <span class="status-dot"></span>
+                    <span class="status-text">Connecting...</span>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Step 1: Upload -->
+            <section class="card" id="uploadCard">
+                <div class="card-header">
+                    <h2>1. Upload Document</h2>
+                </div>
+                <div class="card-body">
+                    <div class="upload-zone" id="uploadZone">
+                        <div class="upload-icon">📄</div>
+                        <h3>Drop your file here</h3>
+                        <p>or click to browse</p>
+                        <p class="file-types">Supports: PDF, Images (PNG, JPG, TIFF), Text, Word</p>
+                        <input type="file" id="fileInput" hidden accept=".pdf,.png,.jpg,.jpeg,.tiff,.tif,.bmp,.txt,.docx,.md,.html">
+                    </div>
+
+                    <div class="file-preview" id="filePreview" style="display: none;">
+                        <div class="file-icon">📎</div>
+                        <div class="file-info">
+                            <div class="file-name" id="fileName"></div>
+                            <div class="file-size" id="fileSize"></div>
+                        </div>
+                        <button class="btn-icon" id="removeFile" title="Remove">✕</button>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Step 2: Configure -->
+            <section class="card" id="configCard" style="display: none;">
+                <div class="card-header">
+                    <h2>2. Configure Processing</h2>
+                </div>
+                <div class="card-body">
+                    <div class="form-group">
+                        <label>Processing Type</label>
+                        <div class="option-grid">
+                            <div class="option-card" data-value="ocr">
+                                <input type="radio" name="type" value="ocr" id="typeOCR">
+                                <label for="typeOCR">
+                                    <span class="option-icon">🔍</span>
+                                    <span class="option-title">OCR</span>
+                                    <span class="option-desc">Extract text from images</span>
+                                </label>
+                            </div>
+                            <div class="option-card" data-value="summarization">
+                                <input type="radio" name="type" value="summarization" id="typeSummary" checked>
+                                <label for="typeSummary">
+                                    <span class="option-icon">📝</span>
+                                    <span class="option-title">Summarize</span>
+                                    <span class="option-desc">Generate summary</span>
+                                </label>
+                            </div>
+                            <div class="option-card" data-value="extraction">
+                                <input type="radio" name="type" value="extraction" id="typeExtract">
+                                <label for="typeExtract">
+                                    <span class="option-icon">🎯</span>
+                                    <span class="option-title">Extract</span>
+                                    <span class="option-desc">Extract key information</span>
+                                </label>
+                            </div>
+                            <div class="option-card" data-value="classification">
+                                <input type="radio" name="type" value="classification" id="typeClassify">
+                                <label for="typeClassify">
+                                    <span class="option-icon">🏷️</span>
+                                    <span class="option-title">Classify</span>
+                                    <span class="option-desc">Categorize document</span>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- OCR Settings (shown when OCR is selected) -->
+                    <div class="ocr-settings" id="ocrSettings" style="display: none;">
+                        <h3>OCR Settings</h3>
+
+                        <div class="form-group">
+                            <label for="ocrLanguage">Language</label>
+                            <select id="ocrLanguage" class="form-select">
+                                <option value="eng">English</option>
+                                <option value="fra">French</option>
+                                <option value="deu">German</option>
+                                <option value="spa">Spanish</option>
+                                <option value="ita">Italian</option>
+                                <option value="por">Portuguese</option>
+                                <option value="rus">Russian</option>
+                                <option value="chi_sim">Chinese (Simplified)</option>
+                                <option value="jpn">Japanese</option>
+                                <option value="kor">Korean</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label class="checkbox-label">
+                                <input type="checkbox" id="ocrPreprocess" checked>
+                                <span>Enable image preprocessing (recommended)</span>
+                            </label>
+                        </div>
+
+                        <div class="form-group">
+                            <label class="checkbox-label">
+                                <input type="checkbox" id="ocrDeskew" checked>
+                                <span>Auto-correct rotation</span>
+                            </label>
+                        </div>
+
+                        <div class="form-group">
+                            <label class="checkbox-label">
+                                <input type="checkbox" id="ocrAI">
+                                <span>AI post-processing (fix OCR errors with Claude)</span>
+                            </label>
+                        </div>
+
+                        <div class="form-group" id="aiProviderGroup" style="display: none;">
+                            <label for="aiProvider">AI Provider</label>
+                            <select id="aiProvider" class="form-select">
+                                <option value="anthropic">Anthropic Claude</option>
+                                <option value="openai">OpenAI GPT</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <button class="btn btn-primary" id="processBtn">
+                        <span>Process Document</span>
+                    </button>
+                </div>
+            </section>
+
+            <!-- Step 3: Processing -->
+            <section class="card" id="processingCard" style="display: none;">
+                <div class="card-header">
+                    <h2>3. Processing</h2>
+                </div>
+                <div class="card-body">
+                    <div class="agents-grid">
+                        <div class="agent-item" id="agentScout">
+                            <div class="agent-icon">🔍</div>
+                            <div class="agent-name">Scout</div>
+                            <div class="agent-status">Waiting...</div>
+                            <div class="agent-progress"><div class="progress-fill"></div></div>
+                        </div>
+                        <div class="agent-arrow">→</div>
+                        <div class="agent-item" id="agentMaker">
+                            <div class="agent-icon">⚙️</div>
+                            <div class="agent-name">Maker</div>
+                            <div class="agent-status">Waiting...</div>
+                            <div class="agent-progress"><div class="progress-fill"></div></div>
+                        </div>
+                        <div class="agent-arrow">→</div>
+                        <div class="agent-item" id="agentChecker">
+                            <div class="agent-icon">✓</div>
+                            <div class="agent-name">Checker</div>
+                            <div class="agent-status">Waiting...</div>
+                            <div class="agent-progress"><div class="progress-fill"></div></div>
+                        </div>
+                        <div class="agent-arrow">→</div>
+                        <div class="agent-item" id="agentCurator">
+                            <div class="agent-icon">🎯</div>
+                            <div class="agent-name">Curator</div>
+                            <div class="agent-status">Waiting...</div>
+                            <div class="agent-progress"><div class="progress-fill"></div></div>
+                        </div>
+                    </div>
+
+                    <div class="logs-box" id="logsBox">
+                        <div class="logs-header">
+                            <span>Activity Log</span>
+                            <button class="btn-text" id="clearLogs">Clear</button>
+                        </div>
+                        <div class="logs-content" id="logsContent"></div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Step 4: Results -->
+            <section class="card" id="resultsCard" style="display: none;">
+                <div class="card-header">
+                    <h2>4. Results</h2>
+                    <button class="btn-secondary" id="startOver">Start Over</button>
+                </div>
+                <div class="card-body">
+                    <div id="resultsContent"></div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <script src="/static/app.js"></script>
+</body>
+</html>

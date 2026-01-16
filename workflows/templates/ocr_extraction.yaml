@@ -1,0 +1,53 @@
+name: ocr_extraction
+description: OCR workflow for extracting text from images and PDFs with AI post-processing
+version: "1.0"
+
+steps:
+  - name: document_scout
+    agent_type: scout
+    description: Analyze document and assess OCR readiness
+    config:
+      preview_length: 500
+      extract_metadata: true
+      analyze_structure: true
+    input_from: document
+
+  - name: ocr_extraction
+    agent_type: maker
+    description: Extract text using OCR with preprocessing
+    config:
+      transformation_type: ocr
+      max_output_length: 50000
+      ocr_config:
+        language: eng  # Tesseract language code (eng, fra, deu, etc.)
+        preprocess: true  # Enable image preprocessing
+        deskew: true  # Auto-deskew images
+        ai_postprocess: true  # Use AI to clean up OCR output
+        ai_provider: anthropic  # or 'openai'
+        # API keys are automatically loaded from environment variables
+        # Set ANTHROPIC_API_KEY or OPENAI_API_KEY in .env file
+    input_from: scout
+
+  - name: quality_check
+    agent_type: checker
+    description: Validate OCR output quality
+    config:
+      min_quality_score: 0.6
+      strict_mode: false
+      custom_rules: []
+    input_from: maker
+
+metadata:
+  author: AI Agent System
+  use_case: OCR extraction from scanned documents
+  supported_formats:
+    - PDF
+    - JPG
+    - PNG
+    - TIFF
+
+  recommendations:
+    - Use high-resolution scans (300 DPI minimum)
+    - Ensure good lighting and contrast
+    - Remove skew and distortion before processing
+    - Enable AI post-processing for best results

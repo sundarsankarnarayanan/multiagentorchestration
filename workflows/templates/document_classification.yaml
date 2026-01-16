@@ -1,0 +1,36 @@
+# Document Classification Workflow
+# Classify documents into categories
+
+name: document_classification
+description: Analyze and classify documents into predefined categories
+version: "1.0"
+
+steps:
+  - name: analyze_document
+    agent_type: scout
+    config:
+      preview_length: 1500
+      extract_metadata: true
+      analyze_structure: true
+    input_from: document
+  
+  - name: classify_document
+    agent_type: maker
+    config:
+      transformation_type: classification
+    input_from: scout
+  
+  - name: validate_classification
+    agent_type: checker
+    config:
+      min_quality_score: 0.7
+      strict_mode: true
+    input_from: maker
+
+metadata:
+  author: AI Agent System
+  category: classification
+  tags:
+    - classification
+    - categorization
+    - taxonomy

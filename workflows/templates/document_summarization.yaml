@@ -1,0 +1,36 @@
+# Document Summarization Workflow
+# This workflow analyzes a document and generates a summary
+
+name: document_summarization
+description: Analyze a document and generate a comprehensive summary
+version: "1.0"
+
+steps:
+  - name: analyze_document
+    agent_type: scout
+    config:
+      preview_length: 1000
+      extract_metadata: true
+      analyze_structure: true
+    input_from: document
+  
+  - name: generate_summary
+    agent_type: maker
+    config:
+      transformation_type: summarization
+      max_output_length: 500
+    input_from: scout
+  
+  - name: validate_summary
+    agent_type: checker
+    config:
+      min_quality_score: 0.6
+      strict_mode: false
+    input_from: maker
+
+metadata:
+  author: AI Agent System
+  category: content_processing
+  tags:
+    - summarization
+    - analysis

@@ -1,0 +1,37 @@
+# Data Extraction Workflow
+# Extract structured data from documents
+
+name: data_extraction
+description: Extract key information and entities from documents
+version: "1.0"
+
+steps:
+  - name: analyze_document
+    agent_type: scout
+    config:
+      preview_length: 2000
+      extract_metadata: true
+      analyze_structure: true
+    input_from: document
+  
+  - name: extract_data
+    agent_type: maker
+    config:
+      transformation_type: extraction
+      max_output_length: 2000
+    input_from: scout
+  
+  - name: validate_extraction
+    agent_type: checker
+    config:
+      min_quality_score: 0.5
+      strict_mode: false
+    input_from: maker
+
+metadata:
+  author: AI Agent System
+  category: data_processing
+  tags:
+    - extraction
+    - entities
+    - structured_data
