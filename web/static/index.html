@@ -204,6 +204,38 @@
                 </div>
             </section>
         </main>
+
+        <!-- Chat Panel -->
+        <div class="chat-fab" id="chatFab" style="display: none;" title="Ask questions about your document">
+            <span class="chat-icon">💬</span>
+        </div>
+
+        <div class="chat-panel" id="chatPanel">
+            <div class="chat-header">
+                <div class="chat-title">
+                    <span class="chat-icon">💬</span>
+                    <span>Ask Questions</span>
+                </div>
+                <button class="chat-close" id="chatClose">✕</button>
+            </div>
+            <div class="chat-messages" id="chatMessages">
+                <div class="chat-welcome">
+                    Upload and process a document to start asking questions about it.
+                </div>
+            </div>
+            <div class="chat-input-area">
+                <input
+                    type="text"
+                    class="chat-input"
+                    id="chatInput"
+                    placeholder="Ask a question about your document..."
+                    disabled
+                >
+                <button class="chat-send" id="chatSend" disabled>
+                    <span>→</span>
+                </button>
+            </div>
+        </div>
     </div>
 
     <script src="/static/app.js"></script>

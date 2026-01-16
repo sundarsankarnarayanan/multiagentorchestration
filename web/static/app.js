@@ -3,7 +3,9 @@ class DocumentProcessor {
     constructor() {
         this.file = null;
         this.ws = null;
+        this.chatWs = null;
         this.processing = false;
+        this.currentDocumentId = null;
 
         this.init();
     }
@@ -12,6 +14,7 @@ class DocumentProcessor {
         this.cacheElements();
         this.setupEvents();
         this.connectWebSocket();
+        this.connectChatWebSocket();
     }
 
     cacheElements() {
@@ -49,6 +52,14 @@ class DocumentProcessor {
 
         // Status
         this.statusPill = document.getElementById('statusPill');
+
+        // Chat
+        this.chatFab = document.getElementById('chatFab');
+        this.chatPanel = document.getElementById('chatPanel');
+        this.chatClose = document.getElementById('chatClose');
+        this.chatMessages = document.getElementById('chatMessages');
+        this.chatInput = document.getElementById('chatInput');
+        this.chatSend = document.getElementById('chatSend');
     }
 
     setupEvents() {
@@ -76,6 +87,17 @@ class DocumentProcessor {
         // Other
         this.clearLogsBtn.addEventListener('click', () => this.clearLogs());
         this.startOverBtn.addEventListener('click', () => this.reset());
+
+        // Chat
+        this.chatFab.addEventListener('click', () => this.toggleChat());
+        this.chatClose.addEventListener('click', () => this.toggleChat());
+        this.chatSend.addEventListener('click', () => this.sendChatMessage());
+        this.chatInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                this.sendChatMessage();
+            }
+        });
     }
 
     // WebSocket
@@ -336,27 +358,201 @@ class DocumentProcessor {
         this.log('Logs cleared', 'info');
     }
 
+    // Chat WebSocket
+    connectChatWebSocket() {
+        const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
+        const url = `${protocol}//${location.host}/chat`;
+
+        this.chatWs = new WebSocket(url);
+
+        this.chatWs.onopen = () => {
+            console.log('Chat WebSocket connected');
+        };
+
+        this.chatWs.onmessage = (event) => {
+            const data = JSON.parse(event.data);
+            this.handleChatMessage(data);
+        };
+
+        this.chatWs.onerror = () => {
+            console.error('Chat WebSocket error');
+        };
+
+        this.chatWs.onclose = () => {
+            console.log('Chat WebSocket disconnected');
+            setTimeout(() => this.connectChatWebSocket(), 3000);
+        };
+    }
+
+    handleChatMessage(data) {
+        if (data.type === 'sources') {
+            this.currentSources = data.sources;
+        } else if (data.type === 'answer') {
+            this.removeTypingIndicator();
+
+            if (!this.currentAnswer) {
+                this.currentAnswer = '';
+                this.currentAnswerBubble = this.addChatMessage('assistant', '');
+            }
+
+            this.currentAnswer += data.content;
+            this.currentAnswerBubble.textContent = this.currentAnswer;
+
+            if (data.done) {
+                if (this.currentSources && this.currentSources.length > 0) {
+                    this.addSourcesToMessage(
+                        this.currentAnswerBubble.parentElement,
+                        this.currentSources
+                    );
+                }
+
+                this.currentAnswer = null;
+                this.currentAnswerBubble = null;
+                this.currentSources = null;
+            }
+
+            this.chatMessages.scrollTop = this.chatMessages.scrollHeight;
+        }
+    }
+
+    toggleChat() {
+        this.chatPanel.classList.toggle('open');
+        if (this.chatPanel.classList.contains('open')) {
+            this.chatInput.focus();
+        }
+    }
+
+    enableChat() {
+        this.chatFab.style.display = 'flex';
+        this.chatInput.disabled = false;
+        this.chatSend.disabled = false;
+        this.currentDocumentId = this.file ? this.file.name : null;
+
+        // Clear welcome message
+        const welcome = this.chatMessages.querySelector('.chat-welcome');
+        if (welcome) {
+            welcome.remove();
+        }
+
+        // Add success message
+        this.addChatMessage(
+            'assistant',
+            `✅ Document processed! Ask me anything about "${this.currentDocumentId}".`
+        );
+    }
+
+    sendChatMessage() {
+        const question = this.chatInput.value.trim();
+        if (!question || !this.chatWs) return;
+
+        // Add user message
+        this.addChatMessage('user', question);
+
+        // Clear input
+        this.chatInput.value = '';
+
+        // Show typing indicator
+        this.showTypingIndicator();
+
+        // Send to server
+        this.chatWs.send(JSON.stringify({
+            type: 'question',
+            question: question,
+            document_id: this.currentDocumentId
+        }));
+    }
+
+    addChatMessage(role, content) {
+        const messageDiv = document.createElement('div');
+        messageDiv.className = `chat-message ${role}`;
+
+        const bubble = document.createElement('div');
+        bubble.className = 'message-bubble';
+        bubble.textContent = content;
+
+        messageDiv.appendChild(bubble);
+        this.chatMessages.appendChild(messageDiv);
+
+        this.chatMessages.scrollTop = this.chatMessages.scrollHeight;
+
+        return bubble;
+    }
+
+    addSourcesToMessage(messageElement, sources) {
+        const sourcesDiv = document.createElement('div');
+        sourcesDiv.className = 'message-sources';
+
+        sources.forEach((source, index) => {
+            const badge = document.createElement('span');
+            badge.className = 'source-badge';
+            badge.textContent = `Source ${index + 1}`;
+            badge.title = source.content;
+            sourcesDiv.appendChild(badge);
+        });
+
+        messageElement.appendChild(sourcesDiv);
+    }
+
+    showTypingIndicator() {
+        const indicator = document.createElement('div');
+        indicator.className = 'chat-message assistant';
+        indicator.id = 'typingIndicator';
+
+        const typingDiv = document.createElement('div');
+        typingDiv.className = 'typing-indicator';
+        typingDiv.innerHTML = `
+            <div class="typing-dot"></div>
+            <div class="typing-dot"></div>
+            <div class="typing-dot"></div>
+        `;
+
+        indicator.appendChild(typingDiv);
+        this.chatMessages.appendChild(indicator);
+        this.chatMessages.scrollTop = this.chatMessages.scrollHeight;
+    }
+
+    removeTypingIndicator() {
+        const indicator = document.getElementById('typingIndicator');
+        if (indicator) {
+            indicator.remove();
+        }
+    }
+
     // Results
     showResults(data) {
         this.resultsCard.style.display = 'block';
         this.resultsCard.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 
-        const isOCR = data.workflow_name?.includes('ocr');
+        const workflowType = data.workflow_name?.split('_')[0] || 'unknown';
         const metadata = data.metadata || {};
 
         let html = '<div class="results-grid">';
 
-        // Stats for OCR
-        if (isOCR && metadata.maker_metadata) {
+        // Stats Grid
+        html += '<div class="stats-grid">';
+
+        // Always show processing time
+        if (data.processing_time_ms) {
+            html += `
+                <div class="stat-box">
+                    <div class="stat-value">${(data.processing_time_ms / 1000).toFixed(1)}s</div>
+                    <div class="stat-label">Processing Time</div>
+                </div>
+            `;
+        }
+
+        // OCR-specific stats
+        if (workflowType === 'ocr' && metadata.maker_metadata) {
             const ocrMeta = metadata.maker_metadata;
-            html += '<div class="stats-grid">';
 
             if (ocrMeta.average_confidence !== undefined) {
                 const conf = (ocrMeta.average_confidence * 100).toFixed(1);
                 html += `
                     <div class="stat-box">
-                        <div class="stat-value">${conf}%</div>
-                        <div class="stat-label">Confidence</div>
+                        <div class="stat-value" style="color: ${conf > 80 ? 'var(--success)' : conf > 60 ? 'var(--warning)' : 'var(--error)'}">
+                            ${conf}%
+                        </div>
+                        <div class="stat-label">OCR Confidence</div>
                     </div>
                 `;
             }
@@ -374,42 +570,43 @@ class DocumentProcessor {
                 html += `
                     <div class="stat-box">
                         <div class="stat-value">${ocrMeta.total_words}</div>
-                        <div class="stat-label">Words</div>
+                        <div class="stat-label">Words Extracted</div>
                     </div>
                 `;
             }
-
-            if (data.processing_time_ms) {
-                html += `
-                    <div class="stat-box">
-                        <div class="stat-value">${(data.processing_time_ms / 1000).toFixed(1)}s</div>
-                        <div class="stat-label">Time</div>
-                    </div>
-                `;
-            }
-
-            html += '</div>';
         }
 
-        // Main output
+        html += '</div>';
+
+        // Main output with nice formatting
+        const outputTitle = {
+            'ocr': 'Extracted Text',
+            'summarization': 'Summary',
+            'extraction': 'Extracted Information',
+            'classification': 'Classification Result'
+        }[workflowType] || 'Output';
+
         html += `
-            <div class="result-section">
-                <h3>${isOCR ? 'Extracted Text' : 'Output'}</h3>
-                <div class="result-value">
+            <div class="result-highlight">
+                <h3>${outputTitle}</h3>
+                <div class="result-text">
                     ${typeof data.final_output === 'string'
-                        ? this.escapeHtml(data.final_output)
+                        ? this.formatOutput(data.final_output)
                         : `<pre>${JSON.stringify(data.final_output, null, 2)}</pre>`}
                 </div>
             </div>
         `;
 
-        // Metadata
-        if (Object.keys(metadata).length > 0) {
+        // Document metadata
+        if (metadata.scout_metadata) {
+            const scoutMeta = metadata.scout_metadata;
             html += `
                 <div class="result-section">
-                    <h3>Details</h3>
+                    <h3>Document Information</h3>
                     <div class="result-value">
-                        <pre>${JSON.stringify(metadata, null, 2)}</pre>
+                        ${scoutMeta.file_type ? `<div><strong>Type:</strong> ${scoutMeta.file_type}</div>` : ''}
+                        ${scoutMeta.page_count ? `<div><strong>Pages:</strong> ${scoutMeta.page_count}</div>` : ''}
+                        ${scoutMeta.character_count ? `<div><strong>Characters:</strong> ${scoutMeta.character_count.toLocaleString()}</div>` : ''}
                     </div>
                 </div>
             `;
@@ -417,6 +614,14 @@ class DocumentProcessor {
 
         html += '</div>';
         this.resultsContent.innerHTML = html;
+
+        // Enable chat after showing results
+        this.enableChat();
+    }
+
+    formatOutput(text) {
+        // Convert line breaks to HTML
+        return this.escapeHtml(text).replace(/\n/g, '<br>');
     }
 
     // Utilities
@@ -437,6 +642,12 @@ class DocumentProcessor {
     reset() {
         this.removeFile();
         this.logsContent.innerHTML = '';
+        this.chatMessages.innerHTML = '<div class="chat-welcome">Upload and process a document to start asking questions about it.</div>';
+        this.chatFab.style.display = 'none';
+        this.chatPanel.classList.remove('open');
+        this.chatInput.disabled = true;
+        this.chatSend.disabled = true;
+        this.currentDocumentId = null;
         window.scrollTo({ top: 0, behavior: 'smooth' });
     }
 }
