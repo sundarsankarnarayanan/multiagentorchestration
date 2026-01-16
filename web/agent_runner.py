@@ -64,10 +64,9 @@ class WebSocketAgentRunner:
                 # Use provided configuration (from UI or API)
                 # Log the transformation type being used
                 transformation_type = workflow_config.get("maker_config", {}).get("transformation_type", "unknown")
-                await self.ws_handler.send_log(
-                    f"Using transformation type: {transformation_type}",
-                    "INFO"
-                )
+                import logging
+                logger = logging.getLogger(__name__)
+                logger.info(f"Using transformation type: {transformation_type}")
             
             # Create curator agent
             curator = CuratorAgent(
