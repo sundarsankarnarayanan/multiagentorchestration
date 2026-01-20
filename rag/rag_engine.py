@@ -11,7 +11,7 @@ import logging
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from rag.vector_store import get_vector_store
-from rag.llm_client import get_ollama_client
+from rag.llm_client import get_llm_client
 from rag.prompts import RAGPrompts
 
 logger = logging.getLogger(__name__)
@@ -20,34 +20,36 @@ logger = logging.getLogger(__name__)
 class RAGEngine:
     """
     RAG (Retrieval-Augmented Generation) Engine.
-    
+
     Orchestrates the complete RAG pipeline:
     1. Retrieve relevant context from vector store
     2. Format prompt with context
     3. Generate answer using LLM
     4. Return answer with sources
     """
-    
+
     def __init__(
         self,
         model: str = "llama2",
+        provider: str = "ollama",
         top_k: int = 5,
         temperature: float = 0.7
     ):
         """
         Initialize RAG engine.
-        
+
         Args:
             model: LLM model name
+            provider: LLM provider ('anthropic' or 'ollama')
             top_k: Number of context chunks to retrieve
             temperature: LLM sampling temperature
         """
         self.vector_store = get_vector_store()
-        self.llm_client = get_ollama_client(model=model)
+        self.llm_client = get_llm_client(provider=provider, model=model)
         self.top_k = top_k
         self.temperature = temperature
-        
-        logger.info(f"RAG Engine initialized with model: {model}")
+
+        logger.info(f"RAG Engine initialized with {provider} - model: {model}")
     
     async def check_llm_available(self) -> bool:
         """
@@ -241,9 +243,21 @@ class RAGEngine:
 _rag_engine: Optional[RAGEngine] = None
 
 
-def get_rag_engine(model: str = "llama2") -> RAGEngine:
-    """Get the global RAG engine instance."""
+def get_rag_engine(
+    model: str = "llama2",
+    provider: str = "ollama"
+) -> RAGEngine:
+    """
+    Get the global RAG engine instance.
+
+    Args:
+        model: LLM model name
+        provider: LLM provider ('anthropic' or 'ollama')
+
+    Returns:
+        RAG engine instance
+    """
     global _rag_engine
     if _rag_engine is None or _rag_engine.llm_client.model != model:
-        _rag_engine = RAGEngine(model=model)
+        _rag_engine = RAGEngine(model=model, provider=provider)
     return _rag_engine
